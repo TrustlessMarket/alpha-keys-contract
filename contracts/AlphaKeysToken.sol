@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity >=0.8.0;
 
-import {IAlphaKeysTokenV3} from "./interfaces/IAlphaKeysTokenV3.sol";
+import {IAlphaKeysToken} from "./interfaces/IAlphaKeysToken.sol";
 import {AlphaKeysTokenStorage} from "./storage/AlphaKeysTokenStorage.sol";
 
 import {BlockContext} from "./base/BlockContext.sol";
@@ -22,8 +22,8 @@ import {TransferHelper} from "./libraries/TransferHelper.sol";
 import {NumberMath} from "./libraries/NumberMath.sol";
 import {TokenTypes} from "./libraries/TokenTypes.sol";
 
-contract AlphaKeysTokenV3 is
-    IAlphaKeysTokenV3,
+contract AlphaKeysToken is
+    IAlphaKeysToken,
     BlockContext,
     Multicall,
     OwnableUpgradeable,
@@ -71,6 +71,7 @@ contract AlphaKeysTokenV3 is
         _player = player;
         _createdTimestamp = _blockTimestamp();
         _btcMigrated = true;
+        _vaultMigrated = true;
         //
         if (player == address(0)) {
             _mint(address(this), NumberMath.ONE_ETHER);
@@ -115,24 +116,13 @@ contract AlphaKeysTokenV3 is
     }
 
     function getProtocolFeeRatio() public view returns (uint24) {
-        uint256 buyPrice = getBuyPriceV2(NumberMath.ONE_ETHER);
-        if (buyPrice >= 10 ether) {
-            return 10000;
-        } else if (buyPrice >= 1 ether) {
-            return 20000;
-        } else if (buyPrice >= 0.1 ether) {
-            return 30000;
-        } else if (buyPrice >= 0.01 ether) {
-            return 40000;
-        }
-        return 50000;
+        return getFactory().getProtocolFeeRatio();
     }
 
     function getPlayerFeeRatio() public view returns (uint24) {
         uint24 playerFeeRatio = _playerFeeRatio;
         if (playerFeeRatio == 0) {
-            IAlphaKeysFactory factory = getFactory();
-            playerFeeRatio = factory.getPlayerFeeRatio();
+            playerFeeRatio = getFactory().getPlayerFeeRatio();
             return playerFeeRatio;
         }
         return (playerFeeRatio - FEE_ENABLED);
@@ -260,20 +250,8 @@ contract AlphaKeysTokenV3 is
         return btc;
     }
 
-    function getBTCBalance() public view returns (uint256) {
-        return IERC20Upgradeable(getBTC()).balanceOf(address(this));
-    }
-
-    function getFeeBTC() public view returns (uint256) {
-        uint256 supplyUnits = totalSupplyUnits();
-        uint256 price = 0;
-        if (supplyUnits > NumberMath.NUMBER_UNIT_PER_ONE_ETHER) {
-            price = getPriceV2(
-                NumberMath.NUMBER_UNIT_PER_ONE_ETHER,
-                supplyUnits - NumberMath.NUMBER_UNIT_PER_ONE_ETHER
-            );
-        }
-        return getBTCBalance().sub(price);
+    function getVault() public view returns (address) {
+        return IAlphaKeysFactory(_factory).getVault();
     }
 
     function freeBalanceOf(address user) public view returns (uint256) {
@@ -355,7 +333,7 @@ contract AlphaKeysTokenV3 is
         address btc = getBTC();
         //
         if (_msgSender() == address(factory)) {
-            factory.requestPayment(
+            factory.requestFund(
                 btc,
                 from,
                 price.add(protocolFee).add(playerFee)
@@ -364,14 +342,15 @@ contract AlphaKeysTokenV3 is
             TransferHelper.safeTransferFrom(
                 btc,
                 from,
-                address(this),
+                getVault(),
                 price.add(protocolFee).add(playerFee)
             );
         }
-        //
-        TransferHelper.safeTransfer(btc, protocolFeeDestination, protocolFee);
+        factory.requestRefund(btc, protocolFeeDestination, protocolFee);
         if (player != address(0)) {
-            TransferHelper.safeTransfer(btc, player, playerFee);
+            factory.requestRefund(btc, player, playerFee);
+        } else {
+            factory.requestRefund(btc, address(this), playerFee);
         }
     }
 
@@ -421,39 +400,20 @@ contract AlphaKeysTokenV3 is
         //
         address btc = getBTC();
         //
-        TransferHelper.safeTransfer(
+        factory.requestRefund(
             btc,
             recipient,
             price.sub(protocolFee).sub(playerFee)
         );
-        TransferHelper.safeTransfer(btc, protocolFeeDestination, protocolFee);
+        factory.requestRefund(btc, protocolFeeDestination, protocolFee);
         if (player != address(0)) {
-            TransferHelper.safeTransfer(btc, player, playerFee);
+            factory.requestRefund(btc, player, playerFee);
+        } else {
+            factory.requestRefund(btc, address(this), playerFee);
         }
     }
 
     // external
-
-    function buyKeys(uint256 amount) external notContract nonReentrant {
-        _buyKeysFor(
-            _msgSender(),
-            amount.mul(NumberMath.ONE_ETHER),
-            _msgSender(),
-            TokenTypes.OrderType.SpotOrder
-        );
-    }
-
-    function buyKeysFor(
-        uint256 amount,
-        address recipient
-    ) external notContract nonReentrant {
-        _buyKeysFor(
-            _msgSender(),
-            amount.mul(NumberMath.ONE_ETHER),
-            recipient,
-            TokenTypes.OrderType.SpotOrder
-        );
-    }
 
     function buyKeysV2(uint256 amountX18) external notContract nonReentrant {
         _buyKeysFor(
@@ -483,27 +443,6 @@ contract AlphaKeysTokenV3 is
         TokenTypes.OrderType orderType
     ) external nonReentrant onlyFactory {
         _buyKeysFor(from, amountX18, recipient, orderType);
-    }
-
-    function sellKeys(uint256 amount) external notContract nonReentrant {
-        _sellKeysForV2(
-            _msgSender(),
-            amount.mul(NumberMath.ONE_ETHER),
-            _msgSender(),
-            TokenTypes.OrderType.SpotOrder
-        );
-    }
-
-    function sellKeysFor(
-        uint256 amount,
-        address recipient
-    ) external notContract nonReentrant {
-        _sellKeysForV2(
-            _msgSender(),
-            amount.mul(NumberMath.ONE_ETHER),
-            recipient,
-            TokenTypes.OrderType.SpotOrder
-        );
     }
 
     function sellKeysV2(uint256 amountX18) external notContract nonReentrant {
@@ -551,7 +490,9 @@ contract AlphaKeysTokenV3 is
                 newPlayer,
                 balanceOf(address(this))
             );
-            uint256 feeBTC = getFeeBTC();
+            uint256 feeBTC = IERC20Upgradeable(getBTC()).balanceOf(
+                address(this)
+            );
             if (feeBTC > 0) {
                 TransferHelper.safeTransfer(getBTC(), newPlayer, feeBTC);
             }

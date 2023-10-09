@@ -8,7 +8,7 @@ abstract contract AlphaKeysFactoryStorage {
     //
     address internal _playerShareTokenImplementation;
     //
-    uint24 internal _protocolFeeRatio_;
+    uint24 internal _protocolFeeRatio;
     uint24 internal _playerFeeRatio;
     address internal _protocolFeeDestination;
     //

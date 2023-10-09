@@ -13,7 +13,7 @@ import {Multicall} from "./base/Multicall.sol";
 
 import {IAlphaKeysFactory} from "./interfaces/IAlphaKeysFactory.sol";
 import {AlphaKeysFactoryStorage} from "./storage/AlphaKeysFactoryStorage.sol";
-import {IAlphaKeysTokenV3} from "./interfaces/IAlphaKeysTokenV3.sol";
+import {IAlphaKeysToken} from "./interfaces/IAlphaKeysToken.sol";
 import {IAlphaKeysVault} from "./interfaces/IAlphaKeysVault.sol";
 
 import {NumberMath} from "./libraries/NumberMath.sol";
@@ -70,7 +70,7 @@ contract AlphaKeysFactory is
         __ReentrancyGuard_init();
         //
         _protocolFeeDestination = _msgSender();
-        // _protocolFeeRatio = 50000;
+        _protocolFeeRatio = 50000;
         _playerFeeRatio = 50000;
         _admin = _msgSender();
     }
@@ -140,13 +140,13 @@ contract AlphaKeysFactory is
         return _keysTwitters[token];
     }
 
-    // function setProtocolFeeRatio(uint24 protocolFeeRatio) external onlyOwner {
-    //     _protocolFeeRatio = protocolFeeRatio;
-    // }
+    function setProtocolFeeRatio(uint24 protocolFeeRatio) external onlyOwner {
+        _protocolFeeRatio = protocolFeeRatio;
+    }
 
-    // function getProtocolFeeRatio() external view returns (uint24) {
-    //     return _protocolFeeRatio;
-    // }
+    function getProtocolFeeRatio() external view returns (uint24) {
+        return _protocolFeeRatio;
+    }
 
     function setPlayerFeeRatio(uint24 playerFeeRatio) external onlyOwner {
         _playerFeeRatio = playerFeeRatio;
@@ -215,7 +215,7 @@ contract AlphaKeysFactory is
     ) external nonReentrant onlyAdmin {
         require(_playerKeys[player] == address(0), "AKF_PNZA");
         //
-        IAlphaKeysTokenV3 token = IAlphaKeysTokenV3(
+        IAlphaKeysToken token = IAlphaKeysToken(
             address(new AlphaKeysTokenProxy())
         );
         token.initialize(address(this), player, name, symbol);
@@ -236,7 +236,7 @@ contract AlphaKeysFactory is
         require(_playerKeys[player] == address(0), "AKF_PNZA");
         require(_twitterKeys[twitterId] == address(0), "AKF_TNZA");
         //
-        IAlphaKeysTokenV3 token = IAlphaKeysTokenV3(
+        IAlphaKeysToken token = IAlphaKeysToken(
             address(new AlphaKeysTokenProxy())
         );
         token.initialize(address(this), player, name, symbol);
@@ -258,7 +258,7 @@ contract AlphaKeysFactory is
         require(_twitterKeys[twitterId] == address(0), "AKF_TNZA");
         _verifyCreateTokenSigner(twitterId, name, symbol, signature);
         //
-        IAlphaKeysTokenV3 token = IAlphaKeysTokenV3(
+        IAlphaKeysToken token = IAlphaKeysToken(
             address(new AlphaKeysTokenProxy())
         );
         token.initialize(address(this), address(0), name, symbol);
@@ -276,7 +276,7 @@ contract AlphaKeysFactory is
         address oldPlayer = _keysPlayers[token];
         _playerKeys[oldPlayer] = address(0);
         //
-        IAlphaKeysTokenV3 tokenIns = IAlphaKeysTokenV3(token);
+        IAlphaKeysToken tokenIns = IAlphaKeysToken(token);
         tokenIns.updateNewPlayer(newPlayer);
         //
         _keysPlayers[token] = newPlayer;
@@ -306,15 +306,27 @@ contract AlphaKeysFactory is
         TransferHelper.safeTransfer(btc, owner(), amount);
     }
 
-    function requestPayment(
+    function requestFund(
         address token,
         address from,
         uint256 amount
     ) external onlyToken(_msgSender()) {
+        address vault = _vault;
         if (from == address(this)) {
-            TransferHelper.safeTransfer(token, _msgSender(), amount);
-        } else {
-            TransferHelper.safeTransferFrom(token, from, _msgSender(), amount);
+            TransferHelper.safeTransfer(token, vault, amount);
+        } else if (from != vault) {
+            TransferHelper.safeTransferFrom(token, from, vault, amount);
+        }
+    }
+
+    function requestRefund(
+        address token,
+        address to,
+        uint256 amount
+    ) external onlyToken(_msgSender()) {
+        address vault = _vault;
+        if (to != vault) {
+            TransferHelper.safeTransferFrom(token, vault, to, amount);
         }
     }
 
@@ -328,11 +340,11 @@ contract AlphaKeysFactory is
         address recipient,
         TokenTypes.OrderType orderType
     ) internal onlyToken(token) returns (uint256) {
-        uint256 buyPriceAfterFee = IAlphaKeysTokenV3(token)
+        uint256 buyPriceAfterFee = IAlphaKeysToken(token)
             .getBuyPriceAfterFeeV2(amountX18);
         require(buyPriceAfterFeeMax >= buyPriceAfterFee, "AKF_BBP");
         //
-        IAlphaKeysTokenV3(token).permitBuyKeysForV2(
+        IAlphaKeysToken(token).permitBuyKeysForV2(
             from,
             amountX18,
             recipient,
@@ -348,7 +360,7 @@ contract AlphaKeysFactory is
         address recipient,
         TokenTypes.OrderType orderType
     ) internal onlyToken(token) {
-        IAlphaKeysTokenV3(token).permitBuyKeysForV2(
+        IAlphaKeysToken(token).permitBuyKeysForV2(
             from,
             amountX18,
             recipient,
@@ -366,10 +378,10 @@ contract AlphaKeysFactory is
     ) internal onlyToken(token) {
         require(
             sellPriceAfterFeeMin <=
-                IAlphaKeysTokenV3(token).getSellPriceAfterFeeV2(amountX18),
+                IAlphaKeysToken(token).getSellPriceAfterFeeV2(amountX18),
             "AKF_BSP"
         );
-        IAlphaKeysTokenV3(token).permitSellKeysForV2(
+        IAlphaKeysToken(token).permitSellKeysForV2(
             from,
             amountX18,
             recipient,
@@ -384,7 +396,7 @@ contract AlphaKeysFactory is
         address recipient,
         TokenTypes.OrderType orderType
     ) internal onlyToken(token) {
-        IAlphaKeysTokenV3(token).permitSellKeysForV2(
+        IAlphaKeysToken(token).permitSellKeysForV2(
             from,
             amountX18,
             recipient,
@@ -607,7 +619,7 @@ contract AlphaKeysFactory is
         address tokenA = _playerKeys[_msgSender()];
         require(tokenA != tokenB, "AKF_NET");
         //
-        address ownerA = IAlphaKeysTokenV3(tokenA).getPlayer();
+        address ownerA = IAlphaKeysToken(tokenA).getPlayer();
         //
         require(_msgSender() == ownerA, "AKF_NOA");
         require(
@@ -624,7 +636,7 @@ contract AlphaKeysFactory is
         //
         require(_threeThreeOrders[orderId].tokenA == address(0), "AKF_BOI");
         //
-        address ownerB = IAlphaKeysTokenV3(tokenB).getPlayer();
+        address ownerB = IAlphaKeysToken(tokenB).getPlayer();
         //
         _threeThreeOrders[orderId] = ThreeThreeTypes.Order({
             status: ThreeThreeTypes.OrderStatus.Unfilled,
@@ -659,7 +671,7 @@ contract AlphaKeysFactory is
         );
         //
         address tokenB = order.tokenB;
-        address ownerB = IAlphaKeysTokenV3(tokenB).getPlayer();
+        address ownerB = IAlphaKeysToken(tokenB).getPlayer();
         //
         require(_msgSender() == ownerB, "AKF_NOB");
         // save ownerB
@@ -690,8 +702,8 @@ contract AlphaKeysFactory is
         //
         emit ThreeThreeTrade(orderId, tokenA, ownerA, tokenB, ownerB, amount);
         //
-        IAlphaKeysTokenV3(tokenA).permitLock30D(ownerB, amount);
-        IAlphaKeysTokenV3(tokenB).permitLock30D(ownerA, amount);
+        IAlphaKeysToken(tokenA).permitLock30D(ownerB, amount);
+        IAlphaKeysToken(tokenB).permitLock30D(ownerA, amount);
     }
 
     function threeThreeCancel(
@@ -707,7 +719,7 @@ contract AlphaKeysFactory is
         address tokenA = order.tokenA;
         require(tokenA != address(0), "AKF_ITA");
         //
-        address ownerA = IAlphaKeysTokenV3(tokenA).getPlayer();
+        address ownerA = IAlphaKeysToken(tokenA).getPlayer();
         require(_msgSender() == ownerA, "AKF_IOA");
         //
         order.status = ThreeThreeTypes.OrderStatus.Cancelled;
@@ -728,7 +740,7 @@ contract AlphaKeysFactory is
         address tokenB = order.tokenB;
         require(tokenB != address(0), "AKF_ITB");
         //
-        address ownerB = IAlphaKeysTokenV3(tokenB).getPlayer();
+        address ownerB = IAlphaKeysToken(tokenB).getPlayer();
         require(_msgSender() == ownerB, "AKF_IOB");
         //
         order.status = ThreeThreeTypes.OrderStatus.Rejected;
@@ -798,7 +810,7 @@ contract AlphaKeysFactory is
         //
         if (isBuy) {
             require(
-                IAlphaKeysTokenV3(token).getBuyPriceV2(NumberMath.ONE_ETHER) <=
+                IAlphaKeysToken(token).getBuyPriceV2(NumberMath.ONE_ETHER) <=
                     triggerPrice,
                 "AKF_BTBP"
             );
@@ -825,7 +837,7 @@ contract AlphaKeysFactory is
             }
         } else {
             require(
-                IAlphaKeysTokenV3(token).getBuyPriceV2(NumberMath.ONE_ETHER) >=
+                IAlphaKeysToken(token).getBuyPriceV2(NumberMath.ONE_ETHER) >=
                     triggerPrice,
                 "AKF_BTSP"
             );

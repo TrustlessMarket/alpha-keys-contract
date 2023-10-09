@@ -8,9 +8,12 @@ abstract contract AlphaKeysTokenStorage {
     address internal _reserve0;
     address internal _player;
     uint256 internal _createdTimestamp;
+    // btcMigrated
     bool internal _btcMigrated;
     // user -> duation -> array locked data
     mapping(address => mapping(uint256 => TokenTypes.Locked[])) _lockedUsers;
     // playerFeeRatio
     uint24 internal _playerFeeRatio;
+    // vaultMigrated
+    bool internal _vaultMigrated;
 }

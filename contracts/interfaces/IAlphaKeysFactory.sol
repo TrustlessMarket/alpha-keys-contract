@@ -80,15 +80,13 @@ interface IAlphaKeysFactory is IAlphaKeysFactoryImpl {
 
     function getVault() external view returns (address);
 
-    // function getProtocolFeeRatio() external view returns (uint24);
+    function getProtocolFeeRatio() external view returns (uint24);
 
     function getPlayerFeeRatio() external view returns (uint24);
 
     function getProtocolFeeDestination() external view returns (address);
 
-    function requestPayment(
-        address token,
-        address from,
-        uint256 amount
-    ) external;
+    function requestFund(address token, address from, uint256 amount) external;
+
+    function requestRefund(address token, address to, uint256 amount) external;
 }

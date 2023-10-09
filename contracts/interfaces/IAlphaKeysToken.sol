@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import {TokenTypes} from "../libraries/TokenTypes.sol";
 
-interface IAlphaKeysTokenV3 {
+interface IAlphaKeysToken {
     //
     event Trade(
         address trader,
