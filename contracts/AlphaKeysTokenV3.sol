@@ -485,7 +485,7 @@ contract AlphaKeysTokenV3 is
         _buyKeysFor(from, amountX18, recipient, orderType);
     }
 
-    function sellKeys(uint256 amount) external {
+    function sellKeys(uint256 amount) external notContract nonReentrant {
         _sellKeysForV2(
             _msgSender(),
             amount.mul(NumberMath.ONE_ETHER),
