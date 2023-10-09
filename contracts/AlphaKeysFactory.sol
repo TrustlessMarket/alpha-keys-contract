@@ -57,6 +57,12 @@ contract AlphaKeysFactory is
         _;
     }
 
+    modifier notContract() {
+        // caller is contract
+        require(!_msgSender().isContract(), "AKF_CIC");
+        _;
+    }
+
     receive() external payable {}
 
     function initialize() external initializer {
@@ -248,7 +254,7 @@ contract AlphaKeysFactory is
         string calldata name,
         string calldata symbol,
         bytes memory signature
-    ) external nonReentrant {
+    ) external notContract nonReentrant {
         require(_twitterKeys[twitterId] == address(0), "AKF_TNZA");
         _verifyCreateTokenSigner(twitterId, name, symbol, signature);
         //
@@ -288,13 +294,6 @@ contract AlphaKeysFactory is
             _keysTwitters[token] = twitterId;
         }
     }
-
-    // function removePlayerToken(address player) external onlyOwner {
-    //     address token = _playerKeys[player];
-    //     require(token != address(0));
-    //     _playerKeys[player] = address(0);
-    //     emit AlphaKeysRemoved(player, token);
-    // }
 
     // for migrate BTC
 
@@ -398,7 +397,7 @@ contract AlphaKeysFactory is
         uint256 amountX18,
         uint256 buyPriceAfterFeeMax,
         address recipient
-    ) external {
+    ) external notContract nonReentrant {
         address token = _twitterKeys[twitterId];
         _buyKeysForV2ByToken(
             token,
@@ -414,7 +413,7 @@ contract AlphaKeysFactory is
         address token,
         uint256 amountX18,
         uint256 buyPriceAfterFeeMax
-    ) external {
+    ) external notContract nonReentrant {
         _buyKeysForV2ByToken(
             token,
             _msgSender(),
@@ -430,7 +429,7 @@ contract AlphaKeysFactory is
         uint256 amountX18,
         uint256 buyPriceAfterFeeMax,
         address recipient
-    ) external {
+    ) external notContract nonReentrant {
         _buyKeysForV2ByToken(
             token,
             _msgSender(),
@@ -445,7 +444,7 @@ contract AlphaKeysFactory is
         address token,
         uint256 amountX18,
         uint256 sellPriceAfterFeeMin
-    ) external {
+    ) external notContract nonReentrant {
         _sellKeysForV2ByToken(
             token,
             _msgSender(),
@@ -461,7 +460,7 @@ contract AlphaKeysFactory is
         uint256 amountX18,
         uint256 sellPriceAfterFeeMin,
         address recipient
-    ) external {
+    ) external notContract nonReentrant {
         _sellKeysForV2ByToken(
             token,
             _msgSender(),
@@ -530,7 +529,7 @@ contract AlphaKeysFactory is
         uint256 rate,
         uint256 deadline,
         bytes memory signature
-    ) external nonReentrant {
+    ) external notContract nonReentrant {
         require(amountBTC <= (0.00005 ether), "AKF_IA");
         require(!_usedNonces[trader][nonce], "AKF_BN");
         _usedNonces[trader][nonce] = true;
@@ -598,7 +597,13 @@ contract AlphaKeysFactory is
         address tokenB,
         uint256 amount,
         uint256 buyPriceBAfterFeeMax
-    ) external nonReentrant onlyPlayer(_msgSender()) onlyToken(tokenB) {
+    )
+        external
+        notContract
+        nonReentrant
+        onlyPlayer(_msgSender())
+        onlyToken(tokenB)
+    {
         address tokenA = _playerKeys[_msgSender()];
         require(tokenA != tokenB, "AKF_NET");
         //
@@ -645,7 +650,7 @@ contract AlphaKeysFactory is
     function threeThreeTrade(
         bytes32 orderId,
         uint256 buyPriceAAfterFeeMax
-    ) external nonReentrant {
+    ) external notContract nonReentrant {
         ThreeThreeTypes.Order storage order = _threeThreeOrders[orderId];
         //
         require(
@@ -689,7 +694,9 @@ contract AlphaKeysFactory is
         IAlphaKeysTokenV3(tokenB).permitLock30D(ownerA, amount);
     }
 
-    function threeThreeCancel(bytes32 orderId) external nonReentrant {
+    function threeThreeCancel(
+        bytes32 orderId
+    ) external notContract nonReentrant {
         ThreeThreeTypes.Order storage order = _threeThreeOrders[orderId];
         //
         require(
@@ -708,7 +715,9 @@ contract AlphaKeysFactory is
         emit ThreeThreeCancelled(orderId, tokenA, ownerA);
     }
 
-    function threeThreeReject(bytes32 orderId) external nonReentrant {
+    function threeThreeReject(
+        bytes32 orderId
+    ) external notContract nonReentrant {
         ThreeThreeTypes.Order storage order = _threeThreeOrders[orderId];
         //
         require(
@@ -736,7 +745,7 @@ contract AlphaKeysFactory is
         uint256 amount,
         uint256 triggerPrice,
         uint256 buyPriceAfterFeeMax
-    ) external nonReentrant {
+    ) external notContract nonReentrant {
         address trader = _msgSender();
         LimitOrderTypes.Order storage order = _limitOrders[trader][nonce];
         require(order.trader == address(0), "AKF_BT");
@@ -771,7 +780,7 @@ contract AlphaKeysFactory is
     function limitOrderFill(
         uint256 nonce,
         address trader
-    ) external nonReentrant {
+    ) external notContract nonReentrant {
         LimitOrderTypes.Order storage order = _limitOrders[trader][nonce];
         require(order.trader == trader, "AKF_BT");
         require(
@@ -831,7 +840,7 @@ contract AlphaKeysFactory is
         emit LimitOrderFilled(nonce, trader, token, isBuy, amount);
     }
 
-    function limitOrderCancel(uint256 nonce) external nonReentrant {
+    function limitOrderCancel(uint256 nonce) external notContract nonReentrant {
         address trader = _msgSender();
         LimitOrderTypes.Order storage order = _limitOrders[trader][nonce];
         require(order.trader == trader, "AKF_BT");

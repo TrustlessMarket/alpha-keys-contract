@@ -35,6 +35,7 @@ contract AlphaKeysTokenV3 is
 {
     using SafeMathUpgradeable for uint256;
     using NumberMath for uint256;
+    using AddressUpgradeable for address;
 
     uint24 internal constant FEE_ENABLED = 1;
 
@@ -45,6 +46,12 @@ contract AlphaKeysTokenV3 is
 
     modifier onlyPlayer() {
         require(_msgSender() == _player);
+        _;
+    }
+
+    modifier notContract() {
+        // caller is contract
+        require(!_msgSender().isContract(), "AKF_CIC");
         _;
     }
 
@@ -131,7 +138,9 @@ contract AlphaKeysTokenV3 is
         return (playerFeeRatio - FEE_ENABLED);
     }
 
-    function updatePlayerFeeRatio(uint24 playerFeeRatio) external onlyPlayer {
+    function updatePlayerFeeRatio(
+        uint24 playerFeeRatio
+    ) external notContract onlyPlayer {
         require(playerFeeRatio <= 50000, "AKT_BFR");
         //
         _playerFeeRatio = (playerFeeRatio + FEE_ENABLED);
@@ -306,7 +315,7 @@ contract AlphaKeysTokenV3 is
         uint256 amountX18,
         address recipient,
         TokenTypes.OrderType orderType
-    ) internal nonReentrant {
+    ) internal {
         uint256 amount = amountX18.div(NumberMath.PRICE_UNIT);
         //
         require(amount > 0, "AKT_IA");
@@ -371,7 +380,7 @@ contract AlphaKeysTokenV3 is
         uint256 amountX18,
         address recipient,
         TokenTypes.OrderType orderType
-    ) internal nonReentrant {
+    ) internal {
         uint256 amount = amountX18.div(NumberMath.PRICE_UNIT);
         //
         require(amount > 0, "AKT_IA");
@@ -425,7 +434,7 @@ contract AlphaKeysTokenV3 is
 
     // external
 
-    function buyKeys(uint256 amount) external {
+    function buyKeys(uint256 amount) external notContract nonReentrant {
         _buyKeysFor(
             _msgSender(),
             amount.mul(NumberMath.ONE_ETHER),
@@ -434,7 +443,10 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function buyKeysFor(uint256 amount, address recipient) external {
+    function buyKeysFor(
+        uint256 amount,
+        address recipient
+    ) external notContract nonReentrant {
         _buyKeysFor(
             _msgSender(),
             amount.mul(NumberMath.ONE_ETHER),
@@ -443,7 +455,7 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function buyKeysV2(uint256 amountX18) external {
+    function buyKeysV2(uint256 amountX18) external notContract nonReentrant {
         _buyKeysFor(
             _msgSender(),
             amountX18,
@@ -452,7 +464,10 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function buyKeysForV2(uint256 amountX18, address recipient) external {
+    function buyKeysForV2(
+        uint256 amountX18,
+        address recipient
+    ) external notContract nonReentrant {
         _buyKeysFor(
             _msgSender(),
             amountX18,
@@ -466,7 +481,7 @@ contract AlphaKeysTokenV3 is
         uint256 amountX18,
         address recipient,
         TokenTypes.OrderType orderType
-    ) external onlyFactory {
+    ) external nonReentrant onlyFactory {
         _buyKeysFor(from, amountX18, recipient, orderType);
     }
 
@@ -479,7 +494,10 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function sellKeysFor(uint256 amount, address recipient) external {
+    function sellKeysFor(
+        uint256 amount,
+        address recipient
+    ) external notContract nonReentrant {
         _sellKeysForV2(
             _msgSender(),
             amount.mul(NumberMath.ONE_ETHER),
@@ -488,7 +506,7 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function sellKeysV2(uint256 amountX18) external {
+    function sellKeysV2(uint256 amountX18) external notContract nonReentrant {
         _sellKeysForV2(
             _msgSender(),
             amountX18,
@@ -497,7 +515,10 @@ contract AlphaKeysTokenV3 is
         );
     }
 
-    function sellKeysForV2(uint256 amountX18, address recipient) external {
+    function sellKeysForV2(
+        uint256 amountX18,
+        address recipient
+    ) external notContract nonReentrant {
         _sellKeysForV2(
             _msgSender(),
             amountX18,
@@ -511,7 +532,7 @@ contract AlphaKeysTokenV3 is
         uint256 amountX18,
         address recipient,
         TokenTypes.OrderType orderType
-    ) external onlyFactory {
+    ) external nonReentrant onlyFactory {
         _sellKeysForV2(from, amountX18, recipient, orderType);
     }
 
