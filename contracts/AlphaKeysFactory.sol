@@ -208,24 +208,6 @@ contract AlphaKeysFactory is
         return (signer, messageHash);
     }
 
-    function createAlphaKeysFor(
-        address player,
-        string calldata name,
-        string calldata symbol
-    ) external nonReentrant onlyAdmin {
-        require(_playerKeys[player] == address(0), "AKF_PNZA");
-        //
-        IAlphaKeysToken token = IAlphaKeysToken(
-            address(new AlphaKeysTokenProxy())
-        );
-        token.initialize(address(this), player, name, symbol);
-        //
-        _playerKeys[player] = address(token);
-        _keysPlayers[address(token)] = player;
-        //
-        emit AlphaKeysCreated(player, address(token));
-    }
-
     function createAlphaKeysForV2(
         uint256 twitterId,
         address player,
