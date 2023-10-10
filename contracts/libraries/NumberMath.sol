@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {SafeMathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 library NumberMath {
     // CONST
@@ -27,6 +29,13 @@ library NumberMath {
         return value.mul(ratio).div(RATIO);
     }
 
+    function divRatio(
+        uint256 value,
+        uint24 ratio
+    ) internal pure returns (uint256) {
+        return value.mul(RATIO).div(ratio);
+    }
+
     function mulEther(uint256 value) internal pure returns (uint256) {
         return value.mul(1 ether);
     }
@@ -40,5 +49,94 @@ library NumberMath {
         uint256 rate
     ) internal pure returns (uint256) {
         return value.mul(rate).div(1 ether);
+    }
+
+    function getPriceV2(
+        uint256 supply,
+        uint256 amount
+    ) internal pure returns (uint256) {
+        uint256 sum1 = supply == 0
+            ? 0
+            : ((supply - NUMBER_UNIT_PER_ONE_ETHER) *
+                supply *
+                (2 *
+                    (supply - NUMBER_UNIT_PER_ONE_ETHER) +
+                    NUMBER_UNIT_PER_ONE_ETHER)) / 6;
+        uint256 sum2 = supply == 0 && amount == 1
+            ? 0
+            : ((supply - NUMBER_UNIT_PER_ONE_ETHER + amount) *
+                (supply + amount) *
+                (2 *
+                    (supply - NUMBER_UNIT_PER_ONE_ETHER + amount) +
+                    NUMBER_UNIT_PER_ONE_ETHER)) / 6;
+        uint256 summation = sum2 - sum1;
+        return
+            (summation * ONE_ETHER) /
+            PRICE_KEYS_DENOMINATOR /
+            (NUMBER_UNIT_PER_ONE_ETHER *
+                NUMBER_UNIT_PER_ONE_ETHER *
+                NUMBER_UNIT_PER_ONE_ETHER);
+    }
+
+    function getBuyPriceV2(
+        uint256 supply,
+        uint256 amountX18
+    ) public pure returns (uint256) {
+        return
+            getPriceV2(supply.div(PRICE_UNIT), amountX18.div(PRICE_UNIT)).add(
+                1
+            );
+    }
+
+    function getPaymentMaxFor(
+        address token,
+        address account,
+        address spender
+    ) internal view returns (uint256) {
+        return
+            MathUpgradeable.min(
+                IERC20Upgradeable(token).balanceOf(account),
+                IERC20Upgradeable(token).allowance(account, spender)
+            );
+    }
+
+    function getBuyAmountMaxWithCondition(
+        address token,
+        uint256 amountMax,
+        uint256 buyPriceMax,
+        uint256 amountBTC
+    ) internal view returns (uint256) {
+        uint256 supplyUnits = IERC20Upgradeable(token).totalSupply().div(
+            PRICE_UNIT
+        );
+        uint256 amountMaxUnits = amountMax.div(PRICE_UNIT);
+        uint256 amountUnits = 0;
+        while (true) {
+            if (
+                getPriceV2(supplyUnits.add(amountUnits.add(10)), 1).mul(
+                    NUMBER_UNIT_PER_ONE_ETHER
+                ) >
+                buyPriceMax ||
+                supplyUnits.add(amountUnits.add(10)) >= amountMaxUnits ||
+                getPriceV2(supplyUnits, amountUnits.add(10)) > amountBTC
+            ) {
+                while (true) {
+                    if (
+                        getPriceV2(supplyUnits.add(amountUnits.add(1)), 1).mul(
+                            NUMBER_UNIT_PER_ONE_ETHER
+                        ) >
+                        buyPriceMax ||
+                        supplyUnits.add(amountUnits.add(1)) >= amountMaxUnits ||
+                        getPriceV2(supplyUnits, amountUnits.add(1)) > amountBTC
+                    ) {
+                        break;
+                    }
+                    amountUnits = amountUnits.add(1);
+                }
+                break;
+            }
+            amountUnits = amountUnits.add(10);
+        }
+        return amountUnits.mul(PRICE_UNIT);
     }
 }

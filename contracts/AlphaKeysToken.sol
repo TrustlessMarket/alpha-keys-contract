@@ -286,6 +286,34 @@ contract AlphaKeysToken is
         require(lockedBalanceOf(user) <= balanceOf(user), "AKT_BNR");
     }
 
+    function _createTradeOrderId(
+        address trader,
+        bool isBuy,
+        TokenTypes.OrderType orderType
+    ) internal view returns (bytes32) {
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        return
+            keccak256(
+                abi.encode(
+                    address(this),
+                    chainId,
+                    trader,
+                    isBuy,
+                    _blockNumber(),
+                    orderType
+                )
+            );
+    }
+
+    function getTradeOrder(
+        bytes32 tradeId
+    ) public view returns (TokenTypes.TradeOrder memory) {
+        return _tradeOrders[tradeId];
+    }
+
     // internal
 
     function _buyKeysFor(
@@ -316,6 +344,18 @@ contract AlphaKeysToken is
         uint256 playerFee = price.mulRatio(playerFeeRatio);
         //
         _mint(recipient, amount.mul(NumberMath.PRICE_UNIT));
+        // only support sopt order -> gas saving
+        if (orderType == TokenTypes.OrderType.SpotOrder) {
+            bytes32 orderId = _createTradeOrderId(recipient, true, orderType);
+            require(_tradeOrders[orderId].trader == address(0), "AKT_TONZ");
+            _tradeOrders[orderId] = TokenTypes.TradeOrder({
+                trader: recipient,
+                isBuy: true,
+                createdAt: _blockTimestamp(),
+                amount: amountX18,
+                orderType: orderType
+            });
+        }
         //
         emit TradeV4(
             recipient,
@@ -383,8 +423,19 @@ contract AlphaKeysToken is
         uint256 playerFee = price.mulRatio(playerFeeRatio);
         //
         _burn(from, amount.mul(NumberMath.PRICE_UNIT));
+        // TODO: not yet support for gas saving
+        // bytes32 orderId = _createTradeOrderId(recipient, true, orderType);
+        // require(_tradeOrders[orderId].trader == address(0), "AKT_TONZ");
+        // _tradeOrders[orderId] = TokenTypes.TradeOrder({
+        //     trader: recipient,
+        //     isBuy: false,
+        //     createdAt: _blockTimestamp(),
+        //     amount: amountX18,
+        //     orderType: orderType
+        // });
         //
         address player = _player;
+        //
         emit TradeV4(
             recipient,
             player,

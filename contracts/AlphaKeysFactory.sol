@@ -17,9 +17,10 @@ import {IAlphaKeysToken} from "./interfaces/IAlphaKeysToken.sol";
 import {IAlphaKeysVault} from "./interfaces/IAlphaKeysVault.sol";
 
 import {NumberMath} from "./libraries/NumberMath.sol";
-import {ThreeThreeTypes} from "./libraries/ThreeThreeTypes.sol";
 import {TokenTypes} from "./libraries/TokenTypes.sol";
+import {ThreeThreeTypes} from "./libraries/ThreeThreeTypes.sol";
 import {LimitOrderTypes} from "./libraries/LimitOrderTypes.sol";
+import {WatchlistTypes} from "./libraries/WatchlistTypes.sol";
 
 import {AlphaKeysTokenProxy} from "./AlphaKeysTokenProxy.sol";
 
@@ -54,6 +55,12 @@ contract AlphaKeysFactory is
     modifier onlyPlayer(address player) {
         require(player != address(0), "AKF_PZ");
         require((_playerKeys[player] != address(0)), "AKF_BP");
+        _;
+    }
+
+    modifier onlyTwitterId(uint256 twitterId) {
+        require(twitterId > 0, "AKF_TZ");
+        require((_twitterKeys[twitterId] != address(0)), "AKF_BTI");
         _;
     }
 
@@ -124,19 +131,19 @@ contract AlphaKeysFactory is
         return _btcPrice;
     }
 
-    function getPlayerKeys(address player) external view returns (address) {
+    function getPlayerKeys(address player) public view returns (address) {
         return _playerKeys[player];
     }
 
-    function getKeysPlayer(address token) external view returns (address) {
+    function getKeysPlayer(address token) public view returns (address) {
         return _keysPlayers[token];
     }
 
-    function getTwitterKeys(uint256 twitterId) external view returns (address) {
+    function getTwitterKeys(uint256 twitterId) public view returns (address) {
         return _twitterKeys[twitterId];
     }
 
-    function getKeysTwitters(address token) external view returns (uint256) {
+    function getKeysTwitters(address token) public view returns (uint256) {
         return _keysTwitters[token];
     }
 
@@ -169,6 +176,18 @@ contract AlphaKeysFactory is
         address protocolFeeDestination
     ) external onlyOwner {
         _protocolFeeDestination = protocolFeeDestination;
+    }
+
+    function getTwitterIdByPlayer(
+        address player
+    ) public view returns (uint256) {
+        return _keysTwitters[_playerKeys[player]];
+    }
+
+    function getPlayerByTwitterId(
+        uint256 twitterId
+    ) public view returns (address) {
+        return _keysPlayers[_twitterKeys[twitterId]];
     }
 
     // for create token
@@ -322,8 +341,9 @@ contract AlphaKeysFactory is
         address recipient,
         TokenTypes.OrderType orderType
     ) internal onlyToken(token) returns (uint256) {
-        uint256 buyPriceAfterFee = IAlphaKeysToken(token)
-            .getBuyPriceAfterFeeV2(amountX18);
+        uint256 buyPriceAfterFee = IAlphaKeysToken(token).getBuyPriceAfterFeeV2(
+            amountX18
+        );
         require(buyPriceAfterFeeMax >= buyPriceAfterFee, "AKF_BBP");
         //
         IAlphaKeysToken(token).permitBuyKeysForV2(
@@ -852,5 +872,155 @@ contract AlphaKeysFactory is
         );
         //
         emit LimitOrderCancelled(nonce, trader);
+    }
+
+    // for watchlist
+
+    function getWatchlistCopyTrade(
+        uint256 twitterId,
+        bytes32 orderId
+    ) public view returns (bool) {
+        return _copyTrades[twitterId][orderId];
+    }
+
+    function addWatchlist(
+        uint256 watchTwitterId,
+        uint256 amountMax,
+        uint256 buyPriceMax
+    )
+        external
+        notContract
+        nonReentrant
+        onlyPlayer(_msgSender())
+        onlyTwitterId(watchTwitterId)
+    {
+        //
+        require(
+            amountMax <= (1024 ether) && buyPriceMax <= (10 ether),
+            "AKF_BR"
+        );
+        //
+        uint256 twitterId = getTwitterIdByPlayer(_msgSender());
+        // same twitterId
+        require(twitterId != watchTwitterId, "AKF_STI");
+        // update watchlist
+        WatchlistTypes.Watchlist storage watchlist = _watchlists[twitterId][
+            watchTwitterId
+        ];
+        watchlist.enabled = true;
+        watchlist.amountMax = amountMax;
+        watchlist.buyPriceMax = buyPriceMax;
+        watchlist.validAt = _blockTimestamp();
+        //
+        emit WatchlistUpdated(
+            twitterId,
+            watchTwitterId,
+            true,
+            amountMax,
+            buyPriceMax,
+            _blockTimestamp()
+        );
+    }
+
+    function removeWatchlist(
+        uint256 watchTwitterId
+    )
+        external
+        notContract
+        nonReentrant
+        onlyPlayer(_msgSender())
+        onlyTwitterId(watchTwitterId)
+    {
+        uint256 twitterId = getTwitterIdByPlayer(_msgSender());
+        // update watchlist
+        WatchlistTypes.Watchlist storage watchlist = _watchlists[twitterId][
+            watchTwitterId
+        ];
+        watchlist.enabled = false;
+        watchlist.amountMax = 0;
+        watchlist.buyPriceMax = 0;
+        //
+        emit WatchlistUpdated(
+            twitterId,
+            watchTwitterId,
+            false,
+            0,
+            0,
+            _blockTimestamp()
+        );
+    }
+
+    function buyWithWatchlist(
+        uint256 twitterId,
+        uint256 watchTwitterId,
+        address token,
+        bytes32 orderId
+    )
+        external
+        notContract
+        nonReentrant
+        onlyTwitterId(twitterId)
+        onlyTwitterId(watchTwitterId)
+        onlyToken(token)
+    {
+        // copy trade existed
+        require(_copyTrades[twitterId][orderId] == false, "AKF_CTE");
+        _copyTrades[twitterId][orderId] = true;
+        // update watchlist
+        WatchlistTypes.Watchlist storage watchlist = _watchlists[twitterId][
+            watchTwitterId
+        ];
+        uint256 amountMax = watchlist.amountMax;
+        uint256 buyPriceMax = watchlist.buyPriceMax;
+        // not configure watchlist
+        require(
+            watchlist.enabled && amountMax > 0 && buyPriceMax > 0,
+            "AKF_NCW"
+        );
+        address watchTwitterTrader = getPlayerByTwitterId(watchTwitterId);
+        //
+        TokenTypes.TradeOrder memory watchOrder = IAlphaKeysToken(token)
+            .getTradeOrder(orderId);
+        // not match trade order
+        require(
+            watchOrder.trader == watchTwitterTrader &&
+                watchOrder.isBuy == true &&
+                watchOrder.orderType == TokenTypes.OrderType.SpotOrder &&
+                watchOrder.createdAt > watchlist.validAt,
+            "AKF_NMTO"
+        );
+        //
+        address trader = getPlayerByTwitterId(twitterId);
+        // estimate and copy trade
+        uint24 protocolFeeRatioToken = IAlphaKeysToken(token)
+            .getProtocolFeeRatio();
+        uint24 palyerFeeRatioToken = IAlphaKeysToken(token).getPlayerFeeRatio();
+        uint256 amountBuy = NumberMath.getBuyAmountMaxWithCondition(
+            token,
+            amountMax,
+            buyPriceMax,
+            NumberMath.getPaymentMaxFor(_btc, trader, address(this)).divRatio(
+                uint24(NumberMath.RATIO) +
+                    protocolFeeRatioToken +
+                    palyerFeeRatioToken
+            )
+        );
+        require(amountBuy > 0, "AKF_ABIZ");
+        //
+        _buyKeysForV2ByToken(
+            token,
+            trader,
+            amountBuy,
+            trader,
+            TokenTypes.OrderType.WatchlistOrder
+        );
+        //
+        emit WatchlistCopyTrade(
+            twitterId,
+            watchTwitterId,
+            token,
+            amountBuy,
+            orderId
+        );
     }
 }

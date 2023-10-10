@@ -13,4 +13,12 @@ library TokenTypes {
         uint256 amount;
         uint256 expiredTs;
     }
+
+    struct TradeOrder {
+        address trader;
+        bool isBuy;
+        uint256 createdAt;
+        uint256 amount;
+        OrderType orderType;
+    }
 }

@@ -74,6 +74,10 @@ interface IAlphaKeysToken {
 
     function getPlayer() external view returns (address);
 
+    function getProtocolFeeRatio() external view returns (uint24);
+
+    function getPlayerFeeRatio() external view returns (uint24);
+
     function getBuyPriceAfterFeeV2(
         uint256 amountX18
     ) external view returns (uint256);
@@ -101,4 +105,8 @@ interface IAlphaKeysToken {
     ) external;
 
     function permitLock30D(address user, uint256 amount) external;
+
+    function getTradeOrder(
+        bytes32 tradeId
+    ) external view returns (TokenTypes.TradeOrder memory);
 }

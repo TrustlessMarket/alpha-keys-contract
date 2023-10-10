@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import {ThreeThreeTypes} from "../libraries/ThreeThreeTypes.sol";
 import {LimitOrderTypes} from "../libraries/LimitOrderTypes.sol";
+import {WatchlistTypes} from "../libraries/WatchlistTypes.sol";
 
 abstract contract AlphaKeysFactoryStorage {
     //
@@ -29,4 +30,7 @@ abstract contract AlphaKeysFactoryStorage {
     address internal _swapRouter;
     // limit orders
     mapping(address => mapping(uint256 => LimitOrderTypes.Order)) _limitOrders;
+    // watchlist model : trader -> player
+    mapping(uint256 => mapping(uint256 => WatchlistTypes.Watchlist)) _watchlists;
+    mapping(uint256 => mapping(bytes32 => bool)) _copyTrades;
 }

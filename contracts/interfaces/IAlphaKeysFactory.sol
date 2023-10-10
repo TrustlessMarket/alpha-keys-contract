@@ -75,6 +75,23 @@ interface IAlphaKeysFactory is IAlphaKeysFactoryImpl {
 
     event LimitOrderCancelled(uint256 indexed nonce, address indexed trader);
 
+    event WatchlistUpdated(
+        uint256 indexed twitterId,
+        uint256 indexed watchTwitterId,
+        bool enabled,
+        uint256 amountMax,
+        uint256 buyPriceMax,
+        uint256 validAt
+    );
+
+    event WatchlistCopyTrade(
+        uint256 indexed twitterId,
+        uint256 indexed watchTwitterId,
+        address token,
+        uint256 amount,
+        bytes32 orderId
+    );
+
     //
     function getBTC() external view returns (address);
 

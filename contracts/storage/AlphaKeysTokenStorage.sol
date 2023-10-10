@@ -16,4 +16,6 @@ abstract contract AlphaKeysTokenStorage {
     uint24 internal _playerFeeRatio;
     // vaultMigrated
     bool internal _vaultMigrated;
+    // trader order
+    mapping(bytes32 => TokenTypes.TradeOrder) _tradeOrders;
 }
