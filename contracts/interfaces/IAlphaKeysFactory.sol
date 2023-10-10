@@ -43,6 +43,16 @@ interface IAlphaKeysFactory is IAlphaKeysFactoryImpl {
         uint256 amount
     );
 
+    event ThreeThreeTradeBTC(
+        bytes32 indexed orderId,
+        address indexed tokenA,
+        address ownerA,
+        address indexed tokenB,
+        address ownerB,
+        uint256 amountA,
+        uint256 amountB
+    );
+
     event ThreeThreeCancelled(
         bytes32 indexed orderId,
         address indexed tokenA,

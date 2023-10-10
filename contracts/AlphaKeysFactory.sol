@@ -190,6 +190,19 @@ contract AlphaKeysFactory is
         return _keysPlayers[_twitterKeys[twitterId]];
     }
 
+    // function requireToken(address token) internal {
+    //     require(token != address(0), "AKF_TZ");
+    //     require(
+    //         (_keysPlayers[token] != address(0) || _keysTwitters[token] > 0),
+    //         "AKF_BT"
+    //     );
+    // }
+
+    // function requirePlayer(address player) internal {
+    //     require(player != address(0), "AKF_PZ");
+    //     require((_playerKeys[player] != address(0)), "AKF_BP");
+    // }
+
     // for create token
 
     function getCreateForTwitterMessageHash(
@@ -618,6 +631,14 @@ contract AlphaKeysFactory is
         onlyPlayer(_msgSender())
         onlyToken(tokenB)
     {
+        require(amount >= NumberMath.PRICE_UNIT, "AKF_ANV");
+        //
+        require(
+            buyPriceBAfterFeeMax >=
+                IAlphaKeysToken(tokenB).getBuyPriceAfterFeeV2(amount),
+            "AKF_BBPM"
+        );
+        //
         address tokenA = _playerKeys[_msgSender()];
         require(tokenA != tokenB, "AKF_NET");
         //
@@ -647,8 +668,18 @@ contract AlphaKeysFactory is
             tokenB: tokenB,
             ownerB: ownerB,
             amount: amount,
-            buyPriceBAfterFeeMax: buyPriceBAfterFeeMax
+            buyPriceBAfterFeeMax: buyPriceBAfterFeeMax,
+            locked: true,
+            amountA: 0,
+            amountB: 0
         });
+        //
+        TransferHelper.safeTransferFrom(
+            _btc,
+            ownerA,
+            _vault,
+            buyPriceBAfterFeeMax
+        );
         //
         emit ThreeThreeRequested(
             orderId,
@@ -665,12 +696,15 @@ contract AlphaKeysFactory is
         bytes32 orderId,
         uint256 buyPriceAAfterFeeMax
     ) external notContract nonReentrant {
+        require(buyPriceAAfterFeeMax > 0, "AKF_BPNZ");
+        //
         ThreeThreeTypes.Order storage order = _threeThreeOrders[orderId];
         //
         require(
             order.status == ThreeThreeTypes.OrderStatus.Unfilled,
             "AKF_BOS"
         );
+        require(!order.locked, "AKF_BOT");
         //
         address tokenB = order.tokenB;
         address ownerB = IAlphaKeysToken(tokenB).getPlayer();
@@ -685,14 +719,21 @@ contract AlphaKeysFactory is
         uint256 amount = order.amount;
         uint256 buyPriceBAfterFeeMax = order.buyPriceBAfterFeeMax;
         //
-        _buyKeysForV2ByToken(
+        address vault = _vault;
+        //
+        uint256 buyPriceAfterFee = _buyKeysForV2ByToken(
             tokenB,
-            ownerA,
+            vault,
             amount,
             buyPriceBAfterFeeMax,
             ownerA,
             TokenTypes.OrderType.ThreeThreeOrder
         );
+        uint256 refundAmount = buyPriceBAfterFeeMax.sub(buyPriceAfterFee);
+        if (refundAmount > 0) {
+            TransferHelper.safeTransferFrom(_btc, vault, ownerA, refundAmount);
+        }
+        //
         _buyKeysForV2ByToken(
             tokenA,
             ownerB,
@@ -708,6 +749,167 @@ contract AlphaKeysFactory is
         IAlphaKeysToken(tokenB).permitLock30D(ownerA, amount);
     }
 
+    function threeThreeRequestBTC(
+        address tokenB,
+        uint256 buyPriceBAfterFeeMax
+    )
+        external
+        notContract
+        nonReentrant
+        onlyPlayer(_msgSender())
+        onlyToken(tokenB)
+    {
+        require(buyPriceBAfterFeeMax > 0, "AKF_BPNZ");
+        //
+        address tokenA = _playerKeys[_msgSender()];
+        require(tokenA != tokenB, "AKF_NET");
+        //
+        require(
+            buyPriceBAfterFeeMax >=
+                IAlphaKeysToken(tokenA).getBuyPriceAfterFeeV2(
+                    NumberMath.PRICE_UNIT
+                ) &&
+                buyPriceBAfterFeeMax >=
+                IAlphaKeysToken(tokenB).getBuyPriceAfterFeeV2(
+                    NumberMath.PRICE_UNIT
+                ),
+            "AKF_BBPM"
+        );
+        //
+        address ownerA = IAlphaKeysToken(tokenA).getPlayer();
+        //
+        require(_msgSender() == ownerA, "AKF_NOA");
+        require(
+            IERC20Upgradeable(_btc).balanceOf(ownerA) >= buyPriceBAfterFeeMax,
+            "AKF_OANEB"
+        );
+        //
+        bytes32 orderId = createThreeThreeOrderId(
+            tokenA,
+            tokenB,
+            0,
+            buyPriceBAfterFeeMax
+        );
+        //
+        require(_threeThreeOrders[orderId].tokenA == address(0), "AKF_BOI");
+        //
+        address ownerB = IAlphaKeysToken(tokenB).getPlayer();
+        //
+        _threeThreeOrders[orderId] = ThreeThreeTypes.Order({
+            status: ThreeThreeTypes.OrderStatus.Unfilled,
+            tokenA: tokenA,
+            ownerA: ownerA,
+            tokenB: tokenB,
+            ownerB: ownerB,
+            amount: 0,
+            buyPriceBAfterFeeMax: buyPriceBAfterFeeMax,
+            locked: true,
+            amountA: 0,
+            amountB: 0
+        });
+        //
+        TransferHelper.safeTransferFrom(
+            _btc,
+            ownerA,
+            _vault,
+            buyPriceBAfterFeeMax
+        );
+        //
+        emit ThreeThreeRequested(
+            orderId,
+            tokenA,
+            ownerA,
+            tokenB,
+            ownerB,
+            0,
+            buyPriceBAfterFeeMax
+        );
+    }
+
+    function threeThreeTradeBTC(
+        bytes32 orderId
+    ) external notContract nonReentrant {
+        ThreeThreeTypes.Order storage order = _threeThreeOrders[orderId];
+        //
+        require(
+            order.status == ThreeThreeTypes.OrderStatus.Unfilled,
+            "AKF_BOS"
+        );
+        require(order.locked, "AKF_ONL");
+        require(order.amount == 0, "AKF_ONR");
+        //
+        address tokenB = order.tokenB;
+        address ownerB = IAlphaKeysToken(tokenB).getPlayer();
+        //
+        require(_msgSender() == ownerB, "AKF_NOB");
+        // save ownerB
+        order.ownerB = ownerB;
+        order.status = ThreeThreeTypes.OrderStatus.Filled;
+        //
+        address ownerA = order.ownerA;
+        address tokenA = order.tokenA;
+        uint256 buyPriceBAfterFeeMax = order.buyPriceBAfterFeeMax;
+        uint24 protocolFeeRatioA = IAlphaKeysToken(tokenA)
+            .getProtocolFeeRatio();
+        uint24 playerFeeRatioA = IAlphaKeysToken(tokenA).getPlayerFeeRatio();
+        uint256 amountA = NumberMath.getBuyAmountMaxWithCash(
+            protocolFeeRatioA,
+            playerFeeRatioA,
+            tokenA,
+            buyPriceBAfterFeeMax
+        );
+        uint24 protocolFeeRatioB = IAlphaKeysToken(tokenB)
+            .getProtocolFeeRatio();
+        uint24 playerFeeRatioB = IAlphaKeysToken(tokenB).getPlayerFeeRatio();
+        uint256 amountB = NumberMath.getBuyAmountMaxWithCash(
+            protocolFeeRatioB,
+            playerFeeRatioB,
+            tokenB,
+            buyPriceBAfterFeeMax
+        );
+        order.amountA = amountA;
+        order.amountB = amountB;
+        // AKF_BANM: buy amount not min
+        require(amountA > 0 && amountB > 0, "AKF_BANM");
+        //
+        address vault = _vault;
+        //
+        uint256 buyPriceAfterFee = _buyKeysForV2ByToken(
+            tokenB,
+            vault,
+            amountB,
+            buyPriceBAfterFeeMax,
+            ownerA,
+            TokenTypes.OrderType.ThreeThreeOrder
+        );
+        uint256 refundAmount = buyPriceBAfterFeeMax.sub(buyPriceAfterFee);
+        if (refundAmount > 0) {
+            TransferHelper.safeTransferFrom(_btc, vault, ownerA, refundAmount);
+        }
+        //
+        _buyKeysForV2ByToken(
+            tokenA,
+            ownerB,
+            amountA,
+            buyPriceBAfterFeeMax,
+            ownerB,
+            TokenTypes.OrderType.ThreeThreeOrder
+        );
+        //
+        emit ThreeThreeTradeBTC(
+            orderId,
+            tokenA,
+            ownerA,
+            tokenB,
+            ownerB,
+            amountA,
+            amountB
+        );
+        //
+        IAlphaKeysToken(tokenA).permitLock30D(ownerB, amountA);
+        IAlphaKeysToken(tokenB).permitLock30D(ownerA, amountB);
+    }
+
     function threeThreeCancel(
         bytes32 orderId
     ) external notContract nonReentrant {
@@ -717,6 +919,7 @@ contract AlphaKeysFactory is
             order.status == ThreeThreeTypes.OrderStatus.Unfilled,
             "AKF_BOS"
         );
+        require(order.locked, "AKF_ONL");
         //
         address tokenA = order.tokenA;
         require(tokenA != address(0), "AKF_ITA");
@@ -725,6 +928,13 @@ contract AlphaKeysFactory is
         require(_msgSender() == ownerA, "AKF_IOA");
         //
         order.status = ThreeThreeTypes.OrderStatus.Cancelled;
+        //
+        TransferHelper.safeTransferFrom(
+            _btc,
+            _vault,
+            ownerA,
+            order.buyPriceBAfterFeeMax
+        );
         //
         emit ThreeThreeCancelled(orderId, tokenA, ownerA);
     }
@@ -738,6 +948,7 @@ contract AlphaKeysFactory is
             order.status == ThreeThreeTypes.OrderStatus.Unfilled,
             "AKF_BOS"
         );
+        require(order.locked, "AKF_ONL");
         //
         address tokenB = order.tokenB;
         require(tokenB != address(0), "AKF_ITB");
@@ -745,7 +956,18 @@ contract AlphaKeysFactory is
         address ownerB = IAlphaKeysToken(tokenB).getPlayer();
         require(_msgSender() == ownerB, "AKF_IOB");
         //
+        address tokenA = order.tokenA;
+        require(tokenA != address(0), "AKF_ITA");
+        address ownerA = IAlphaKeysToken(tokenA).getPlayer();
+        //
         order.status = ThreeThreeTypes.OrderStatus.Rejected;
+        //
+        TransferHelper.safeTransferFrom(
+            _btc,
+            _vault,
+            ownerA,
+            order.buyPriceBAfterFeeMax
+        );
         //
         emit ThreeThreeRejected(orderId, tokenB, ownerB);
     }

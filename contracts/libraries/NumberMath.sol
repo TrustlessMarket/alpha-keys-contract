@@ -81,11 +81,59 @@ library NumberMath {
     function getBuyPriceV2(
         uint256 supply,
         uint256 amountX18
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         return
             getPriceV2(supply.div(PRICE_UNIT), amountX18.div(PRICE_UNIT)).add(
                 1
             );
+    }
+
+    function getBuyPriceV2AfterFee(
+        uint24 protocolFeeRatio,
+        uint24 playerFeeRatio,
+        uint256 supply,
+        uint256 amountX18
+    ) internal pure returns (uint256) {
+        //
+        uint256 price = getBuyPriceV2(supply, amountX18);
+        uint256 protocolFee = mulRatio(price, protocolFeeRatio);
+        uint256 playerFee = mulRatio(price, playerFeeRatio);
+        return price.add(protocolFee).add(playerFee);
+    }
+
+    function getBuyAmountMaxWithCash(
+        uint24 protocolFeeRatio,
+        uint24 playerFeeRatio,
+        address token,
+        uint256 buyPriceAfterFeeMax
+    ) internal view returns (uint256) {
+        uint256 supply = IERC20Upgradeable(token).totalSupply();
+        uint256 amount = 0;
+        while (true) {
+            uint256 buyPriceAfterFee = getBuyPriceV2AfterFee(
+                protocolFeeRatio,
+                playerFeeRatio,
+                supply,
+                amount.add(ONE_ETHER)
+            );
+            if (buyPriceAfterFee > buyPriceAfterFeeMax) {
+                while (true) {
+                    buyPriceAfterFee = getBuyPriceV2AfterFee(
+                        protocolFeeRatio,
+                        playerFeeRatio,
+                        supply,
+                        amount.add(PRICE_UNIT)
+                    );
+                    if (buyPriceAfterFee > buyPriceAfterFeeMax) {
+                        break;
+                    }
+                    amount = amount.add(PRICE_UNIT);
+                }
+                break;
+            }
+            amount = amount.add(ONE_ETHER);
+        }
+        return amount;
     }
 
     function getPaymentMaxFor(

@@ -17,5 +17,8 @@ library ThreeThreeTypes {
         address ownerB;
         uint256 amount;
         uint256 buyPriceBAfterFeeMax;
+        bool locked;
+        uint256 amountA;
+        uint256 amountB;
     }
 }
