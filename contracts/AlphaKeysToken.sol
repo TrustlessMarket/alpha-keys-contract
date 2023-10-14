@@ -116,10 +116,16 @@ contract AlphaKeysToken is
     }
 
     function getProtocolFeeRatio() public view returns (uint24) {
+        if (_player == address(0)) {
+            return 0;
+        }
         return getFactory().getProtocolFeeRatio();
     }
 
     function getPlayerFeeRatio() public view returns (uint24) {
+        if (_player == address(0)) {
+            return 0;
+        }
         uint24 playerFeeRatio = _playerFeeRatio;
         if (playerFeeRatio == 0) {
             playerFeeRatio = getFactory().getPlayerFeeRatio();
@@ -131,7 +137,7 @@ contract AlphaKeysToken is
     function updatePlayerFeeRatio(
         uint24 playerFeeRatio
     ) external notContract onlyPlayer {
-        require(playerFeeRatio <= 50000, "AKT_BFR");
+        require(playerFeeRatio <= 80000, "AKT_BFR");
         //
         _playerFeeRatio = (playerFeeRatio + FEE_ENABLED);
         //

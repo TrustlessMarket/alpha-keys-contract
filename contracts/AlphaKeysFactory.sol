@@ -325,11 +325,13 @@ contract AlphaKeysFactory is
         address from,
         uint256 amount
     ) external onlyToken(_msgSender()) {
-        address vault = _vault;
-        if (from == address(this)) {
-            TransferHelper.safeTransfer(token, vault, amount);
-        } else if (from != vault) {
-            TransferHelper.safeTransferFrom(token, from, vault, amount);
+        if (amount > 0) {
+            address vault = _vault;
+            if (from == address(this)) {
+                TransferHelper.safeTransfer(token, vault, amount);
+            } else if (from != vault) {
+                TransferHelper.safeTransferFrom(token, from, vault, amount);
+            }
         }
     }
 
@@ -338,9 +340,11 @@ contract AlphaKeysFactory is
         address to,
         uint256 amount
     ) external onlyToken(_msgSender()) {
-        address vault = _vault;
-        if (to != vault) {
-            TransferHelper.safeTransferFrom(token, vault, to, amount);
+        if (amount > 0) {
+            address vault = _vault;
+            if (to != vault) {
+                TransferHelper.safeTransferFrom(token, vault, to, amount);
+            }
         }
     }
 
