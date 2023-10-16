@@ -297,18 +297,6 @@ contract AlphaKeysFactory is
         _playerKeys[newPlayer] = token;
     }
 
-    function updateTwitterId(
-        uint256 twitterId,
-        address token
-    ) external onlyAdmin onlyToken(token) {
-        if (
-            _twitterKeys[twitterId] == address(0) && _keysTwitters[token] == 0
-        ) {
-            _twitterKeys[twitterId] = token;
-            _keysTwitters[token] = twitterId;
-        }
-    }
-
     // for migrate BTC
 
     function refundTC(uint256 amount) external nonReentrant onlyOwner {
