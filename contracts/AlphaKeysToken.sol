@@ -351,8 +351,9 @@ contract AlphaKeysToken is
         //
         _mint(recipient, amount.mul(NumberMath.PRICE_UNIT));
         // only support sopt order -> gas saving
+        bytes32 orderId;
         if (orderType == TokenTypes.OrderType.SpotOrder) {
-            bytes32 orderId = _createTradeOrderId(recipient, true, orderType);
+            orderId = _createTradeOrderId(recipient, true, orderType);
             require(_tradeOrders[orderId].trader == address(0), "AKT_TONZ");
             _tradeOrders[orderId] = TokenTypes.TradeOrder({
                 trader: recipient,
@@ -373,7 +374,7 @@ contract AlphaKeysToken is
             playerFee,
             supply.add(amount).mul(NumberMath.PRICE_UNIT),
             orderType,
-            bytes32(0)
+            orderId
         );
         //
         address btc = getBTC();
