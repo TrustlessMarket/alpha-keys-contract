@@ -322,34 +322,48 @@ contract AlphaKeysToken is
 
     // internal
 
+    struct BuyKeysForVars {
+        uint256 amount;
+        uint24 protocolFeeRatio;
+        uint24 playerFeeRatio;
+        address protocolFeeDestination;
+        address player;
+        uint256 supply;
+        uint256 price;
+        uint256 protocolFee;
+        uint256 playerFee;
+    }
+
     function _buyKeysFor(
         address from,
         uint256 amountX18,
         address recipient,
         TokenTypes.OrderType orderType
     ) internal {
-        uint256 amount = amountX18.div(NumberMath.PRICE_UNIT);
+        BuyKeysForVars memory vars;
+        vars.amount = amountX18.div(NumberMath.PRICE_UNIT);
         //
-        require(amount > 0, "AKT_IA");
+        require(vars.amount > 0, "AKT_IA");
         //
         IAlphaKeysFactory factory = getFactory();
-        uint24 protocolFeeRatio = getProtocolFeeRatio();
-        uint24 playerFeeRatio = getPlayerFeeRatio();
-        address protocolFeeDestination = factory.getProtocolFeeDestination();
         //
-        uint256 supply = totalSupplyUnits();
-        address player = _player;
+        vars.protocolFeeRatio = getProtocolFeeRatio();
+        vars.playerFeeRatio = getPlayerFeeRatio();
+        vars.protocolFeeDestination = factory.getProtocolFeeDestination();
+        //
+        vars.supply = totalSupplyUnits();
+        vars.player = _player;
         // only player first buy
         require(
-            supply >= NumberMath.NUMBER_UNIT_PER_ONE_ETHER ||
-                player == recipient,
+            vars.supply >= NumberMath.NUMBER_UNIT_PER_ONE_ETHER ||
+                vars.player == recipient,
             "AKT_OPFB"
         );
-        uint256 price = getPriceV2(supply, amount).add(1);
-        uint256 protocolFee = price.mulRatio(protocolFeeRatio);
-        uint256 playerFee = price.mulRatio(playerFeeRatio);
+        vars.price = getPriceV2(vars.supply, vars.amount).add(1);
+        vars.protocolFee = vars.price.mulRatio(vars.protocolFeeRatio);
+        vars.playerFee = vars.price.mulRatio(vars.playerFeeRatio);
         //
-        _mint(recipient, amount.mul(NumberMath.PRICE_UNIT));
+        _mint(recipient, vars.amount.mul(NumberMath.PRICE_UNIT));
         // only support sopt order -> gas saving
         bytes32 orderId;
         if (orderType == TokenTypes.OrderType.SpotOrder) {
@@ -366,13 +380,13 @@ contract AlphaKeysToken is
         //
         emit TradeV4(
             recipient,
-            player,
+            vars.player,
             true,
-            amount.mul(NumberMath.PRICE_UNIT),
-            price,
-            protocolFee,
-            playerFee,
-            supply.add(amount).mul(NumberMath.PRICE_UNIT),
+            vars.amount.mul(NumberMath.PRICE_UNIT),
+            vars.price,
+            vars.protocolFee,
+            vars.playerFee,
+            vars.supply.add(vars.amount).mul(NumberMath.PRICE_UNIT),
             orderType,
             orderId
         );
@@ -383,21 +397,25 @@ contract AlphaKeysToken is
             factory.requestFund(
                 btc,
                 from,
-                price.add(protocolFee).add(playerFee)
+                vars.price.add(vars.protocolFee).add(vars.playerFee)
             );
         } else {
             TransferHelper.safeTransferFrom(
                 btc,
                 from,
                 getVault(),
-                price.add(protocolFee).add(playerFee)
+                vars.price.add(vars.protocolFee).add(vars.playerFee)
             );
         }
-        factory.requestRefund(btc, protocolFeeDestination, protocolFee);
-        if (player != address(0)) {
-            factory.requestRefund(btc, player, playerFee);
+        factory.requestRefund(
+            btc,
+            vars.protocolFeeDestination,
+            vars.protocolFee
+        );
+        if (vars.player != address(0)) {
+            factory.requestRefund(btc, vars.player, vars.playerFee);
         } else {
-            factory.requestRefund(btc, address(this), playerFee);
+            factory.requestRefund(btc, address(this), vars.playerFee);
         }
     }
 

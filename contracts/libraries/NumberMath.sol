@@ -165,7 +165,7 @@ library NumberMath {
                     NUMBER_UNIT_PER_ONE_ETHER
                 ) >
                 buyPriceMax ||
-                supplyUnits.add(amountUnits.add(10)) >= amountMaxUnits ||
+                amountUnits.add(10) > amountMaxUnits ||
                 getPriceV2(supplyUnits, amountUnits.add(10)) > amountBTC
             ) {
                 while (true) {
@@ -174,7 +174,7 @@ library NumberMath {
                             NUMBER_UNIT_PER_ONE_ETHER
                         ) >
                         buyPriceMax ||
-                        supplyUnits.add(amountUnits.add(1)) >= amountMaxUnits ||
+                        amountUnits.add(1) > amountMaxUnits ||
                         getPriceV2(supplyUnits, amountUnits.add(1)) > amountBTC
                     ) {
                         break;
