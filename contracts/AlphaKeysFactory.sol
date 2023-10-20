@@ -148,6 +148,7 @@ contract AlphaKeysFactory is
     }
 
     function setProtocolFeeRatio(uint24 protocolFeeRatio) external onlyOwner {
+        require(protocolFeeRatio < NumberMath.RATIO, "AKF_BR");
         _protocolFeeRatio = protocolFeeRatio;
     }
 
@@ -156,6 +157,7 @@ contract AlphaKeysFactory is
     }
 
     function setPlayerFeeRatio(uint24 playerFeeRatio) external onlyOwner {
+        require(playerFeeRatio < NumberMath.RATIO, "AKF_BR");
         _playerFeeRatio = playerFeeRatio;
     }
 

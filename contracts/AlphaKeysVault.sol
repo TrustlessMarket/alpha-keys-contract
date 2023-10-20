@@ -24,10 +24,6 @@ contract AlphaKeysVault is
     AlphaKeysVaultStorage
 {
     using AddressUpgradeable for address;
-    modifier onlyFactory() {
-        require(_msgSender() == _factory);
-        _;
-    }
 
     function initialize(address factory) external initializer {
         __Ownable_init();
