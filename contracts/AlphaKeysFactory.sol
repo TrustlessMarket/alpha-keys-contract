@@ -608,7 +608,7 @@ contract AlphaKeysFactory is
             );
     }
 
-    function getOrder(
+    function getThreeThreeOrder(
         bytes32 orderId
     ) public view returns (ThreeThreeTypes.Order memory order) {
         return _threeThreeOrders[orderId];
