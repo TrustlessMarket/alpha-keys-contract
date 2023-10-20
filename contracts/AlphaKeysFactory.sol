@@ -696,7 +696,7 @@ contract AlphaKeysFactory is
             order.status == ThreeThreeTypes.OrderStatus.Unfilled,
             "AKF_BOS"
         );
-        require(!order.locked, "AKF_BOT");
+        require(order.locked, "AKF_ONL");
         //
         address tokenB = order.tokenB;
         address ownerB = IAlphaKeysToken(tokenB).getPlayer();
@@ -730,7 +730,7 @@ contract AlphaKeysFactory is
             tokenA,
             ownerB,
             amount,
-            buyPriceAAfterFeeMax,
+            buyPriceAfterFee,
             ownerB,
             TokenTypes.OrderType.ThreeThreeOrder
         );
