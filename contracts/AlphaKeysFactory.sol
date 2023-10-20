@@ -989,12 +989,14 @@ contract AlphaKeysFactory is
         order.buyPriceAfterFeeMax = buyPriceAfterFeeMax;
         order.status = LimitOrderTypes.OrderStatus.Unfilled;
         //
-        TransferHelper.safeTransferFrom(
-            _btc,
-            trader,
-            _vault,
-            buyPriceAfterFeeMax
-        );
+        if (isBuy) {
+            TransferHelper.safeTransferFrom(
+                _btc,
+                trader,
+                _vault,
+                buyPriceAfterFeeMax
+            );
+        }
         //
         emit LimitOrderCreated(
             nonce,
@@ -1080,12 +1082,14 @@ contract AlphaKeysFactory is
         );
         order.status = LimitOrderTypes.OrderStatus.Cancelled;
         //
-        TransferHelper.safeTransferFrom(
-            _btc,
-            _vault,
-            trader,
-            order.buyPriceAfterFeeMax
-        );
+        if (order.isBuy) {
+            TransferHelper.safeTransferFrom(
+                _btc,
+                _vault,
+                trader,
+                order.buyPriceAfterFeeMax
+            );
+        }
         //
         emit LimitOrderCancelled(nonce, trader);
     }
