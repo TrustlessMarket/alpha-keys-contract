@@ -169,27 +169,7 @@ contract AlphaKeysToken is
         uint256 supply,
         uint256 amount
     ) public pure returns (uint256) {
-        uint256 sum1 = supply == 0
-            ? 0
-            : ((supply - NumberMath.NUMBER_UNIT_PER_ONE_ETHER) *
-                supply *
-                (2 *
-                    (supply - NumberMath.NUMBER_UNIT_PER_ONE_ETHER) +
-                    NumberMath.NUMBER_UNIT_PER_ONE_ETHER)) / 6;
-        uint256 sum2 = supply == 0 && amount == 1
-            ? 0
-            : ((supply - NumberMath.NUMBER_UNIT_PER_ONE_ETHER + amount) *
-                (supply + amount) *
-                (2 *
-                    (supply - NumberMath.NUMBER_UNIT_PER_ONE_ETHER + amount) +
-                    NumberMath.NUMBER_UNIT_PER_ONE_ETHER)) / 6;
-        uint256 summation = sum2 - sum1;
-        return
-            (summation * NumberMath.ONE_ETHER) /
-            NumberMath.PRICE_KEYS_DENOMINATOR /
-            (NumberMath.NUMBER_UNIT_PER_ONE_ETHER *
-                NumberMath.NUMBER_UNIT_PER_ONE_ETHER *
-                NumberMath.NUMBER_UNIT_PER_ONE_ETHER);
+        return NumberMath.getPriceV2(supply, amount);
     }
 
     function getBuyPrice(uint256 amount) public view returns (uint256) {
