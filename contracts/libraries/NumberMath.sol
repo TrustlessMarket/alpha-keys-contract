@@ -55,20 +55,19 @@ library NumberMath {
         uint256 supply,
         uint256 amount
     ) internal pure returns (uint256) {
-        uint256 sum1 = supply == 0
-            ? 0
-            : ((supply - NUMBER_UNIT_PER_ONE_ETHER) *
-                supply *
-                (2 *
-                    (supply - NUMBER_UNIT_PER_ONE_ETHER) +
-                    NUMBER_UNIT_PER_ONE_ETHER)) / 6;
-        uint256 sum2 = supply == 0 && amount == 1
-            ? 0
-            : ((supply - NUMBER_UNIT_PER_ONE_ETHER + amount) *
-                (supply + amount) *
-                (2 *
-                    (supply - NUMBER_UNIT_PER_ONE_ETHER + amount) +
-                    NUMBER_UNIT_PER_ONE_ETHER)) / 6;
+        // invalid params
+        require(supply >= NUMBER_UNIT_PER_ONE_ETHER && amount >= 1, "NM_IP");
+        //
+        uint256 sum1 = ((supply - NUMBER_UNIT_PER_ONE_ETHER) *
+            supply *
+            (2 *
+                (supply - NUMBER_UNIT_PER_ONE_ETHER) +
+                NUMBER_UNIT_PER_ONE_ETHER)) / 6;
+        uint256 sum2 = ((supply - NUMBER_UNIT_PER_ONE_ETHER + amount) *
+            (supply + amount) *
+            (2 *
+                (supply - NUMBER_UNIT_PER_ONE_ETHER + amount) +
+                NUMBER_UNIT_PER_ONE_ETHER)) / 6;
         uint256 summation = sum2 - sum1;
         return
             (summation * ONE_ETHER) /
