@@ -1092,6 +1092,13 @@ contract AlphaKeysFactory is
 
     // for watchlist
 
+    function getWatchlist(
+        uint256 twitterId,
+        uint256 watchTwitterId
+    ) public view returns (WatchlistTypes.Watchlist memory) {
+        return _watchlists[twitterId][watchTwitterId];
+    }
+
     function getWatchlistCopyTrade(
         uint256 twitterId,
         bytes32 orderId
